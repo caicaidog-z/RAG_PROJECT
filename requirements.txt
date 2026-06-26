@@ -141,3 +141,7 @@ wrapt==1.17.2
 xxhash==3.5.0
 yarl==1.19.0
 zstandard==0.23.0
+# Web API
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+python-multipart>=0.0.18

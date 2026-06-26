@@ -10,7 +10,7 @@ retriever = mv.vector_store_saved.as_retriever(
         "score_threshold": 0.1,
         "ranker_type": "rrf",
         "ranker_params": {"k": 100},
-        'filter': {"category": "content"}
+        'filter': "category in ['content', 'Table', 'List']"
     }
 )
 
