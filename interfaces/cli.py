@@ -2,6 +2,10 @@ import os
 import sys
 from pprint import pprint
 
+from config.settings import ConfigurationError
+from pymilvus.exceptions import MilvusException
+
+
 def run_chat():
     from services.qa_service import stream_question
 
@@ -22,16 +26,22 @@ def run_chat():
 
 def run_ingest(dir_path: str):
     if not os.path.isdir(dir_path):
-        raise FileNotFoundError(f"Markdown 目录不存在: {dir_path}")
+        raise FileNotFoundError(f"文档目录不存在: {dir_path}")
     from ingestion.milvus_ingest import ingest_directory
 
     ingest_directory(dir_path)
 
 
+def run_web():
+    from webapp.app import serve
+
+    serve()
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv:
-        print("用法: python main.py chat | python main.py ingest <markdown_dir>")
+        print("用法: python main.py chat | python main.py ingest <document_dir> | python main.py web")
         return 1
 
     command = argv[0]
@@ -42,14 +52,24 @@ def main(argv=None):
 
         if command == "ingest":
             if len(argv) < 2:
-                print("用法: python main.py ingest <markdown_dir>")
+                print("用法: python main.py ingest <document_dir>")
                 return 1
             run_ingest(argv[1])
+            return 0
+
+        if command == "web":
+            run_web()
             return 0
     except FileNotFoundError as exc:
         print(str(exc))
         return 1
+    except ConfigurationError as exc:
+        print(f"配置错误: {exc}")
+        return 1
+    except MilvusException as exc:
+        print(f"Milvus 错误: {exc}")
+        return 1
 
     print(f"未知命令: {command}")
-    print("用法: python main.py chat | python main.py ingest <markdown_dir>")
+    print("用法: python main.py chat | python main.py ingest <document_dir> | python main.py web")
     return 1

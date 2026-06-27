@@ -1,5 +1,5 @@
 from utils.logging import log
-from workflows.nodes.document_grader_chain import retrieval_grader_chain
+from workflows.nodes.document_grader_chain import grade_document_relevance
 
 
 def grade_documents(state):
@@ -19,9 +19,7 @@ def grade_documents(state):
     # 文档评分与过滤
     filtered_docs = []  # 初始化相关文档列表
     for d in documents:  # 遍历所有文档
-        score = retrieval_grader_chain.invoke(  # 调用评分器评估文档相关性
-            {"question": question, "document": d.page_content}
-        )
+        score = grade_document_relevance(question, d.page_content)
         grade = score.binary_score  # 获取二元评分结果
         if grade == "yes":  # 如果文档相关
             log.info("---GRADE: 打印相关标识---")  # 打印相关标识

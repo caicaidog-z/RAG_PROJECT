@@ -1,4 +1,4 @@
-from retrieval.retriever_tool import retriever
+from retrieval.retriever_factory import get_retriever
 from utils.logging import log
 
 
@@ -14,5 +14,5 @@ def retrieve(state):
     log.info("---去知识库中检索文档---")  # 打印当前阶段标识
     question = state["question"]  # 从状态中获取用户问题
     # 文档检索
-    documents = retriever.invoke(question)  # 调用检索器获取相关文档
+    documents = get_retriever().invoke(question)  # 调用检索器获取相关文档
     return {"documents": documents, "question": question}  # 返回更新后的状态

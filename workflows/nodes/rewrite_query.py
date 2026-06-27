@@ -1,7 +1,7 @@
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
-from models.llm_factory import llm
+from models.llm_factory import get_llm
 from utils.logging import log
 
 
@@ -37,7 +37,7 @@ def transform_query(state):
     # 构建问题重写处理链
     question_rewriter = (
             re_write_prompt  # 使用优化提示模板
-            | llm  # 调用语言模型
+            | get_llm()  # 调用语言模型
             | StrOutputParser()  # 将输出解析为字符串
     )
 

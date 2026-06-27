@@ -1,7 +1,7 @@
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 
-from models.llm_factory import llm
+from models.llm_factory import get_llm
 
 
 def generate(state):
@@ -31,7 +31,7 @@ def generate(state):
     # 构建RAG处理链
     rag_chain = (
             prompt |  # 第一步：使用提示模板
-            llm |  # 第二步：调用语言模型
+            get_llm() |  # 第二步：调用语言模型
             StrOutputParser()  # 第三步：解析模型输出为字符串
     )
 

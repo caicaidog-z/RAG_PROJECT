@@ -1,10 +1,9 @@
 from typing import List
-from langchain_experimental.text_splitter import SemanticChunker
 
 from langchain_community.document_loaders import UnstructuredMarkdownLoader
 from langchain_core.documents import Document
 
-from models.embedding_factory import openai_embedding
+from ingestion.document_chunker import SemanticDocumentChunker
 from utils.logging import log
 
 
@@ -13,18 +12,10 @@ class MarkdownParser:
     专门负责markdown文件的解析和切片
     """
     def __init__(self):
-        self.text_splitter = SemanticChunker(
-            openai_embedding, breakpoint_threshold_type="percentile"
-        )
+        self.chunker = SemanticDocumentChunker()
 
     def text_chunker(self, datas: List[Document]) -> List[Document]:
-        new_docs = []
-        for d in datas:
-            if len(d.page_content) > 5000:  # 内容超出了阈值，则按照语义再切割
-                new_docs.extend(self.text_splitter.split_documents([d]))
-                continue
-            new_docs.append(d)
-        return new_docs
+        return self.chunker.chunk_documents(datas)
 
 
     def parse_markdown_to_documents(self, md_file: str, encoding='utf-8') -> List[Document]:
@@ -56,6 +47,9 @@ class MarkdownParser:
         parent_dict = {}  # 是一个字典，保存所有的父document， key为当前父document的ID
         for document in datas:
             metadata = document.metadata
+            metadata.setdefault("page_number", 0)
+            metadata.setdefault("element_type", "markdown")
+            metadata.setdefault("asset_path", "")
             if 'languages' in metadata:
                 metadata.pop('languages')
 
@@ -79,14 +73,3 @@ class MarkdownParser:
             merged_data.extend(parent_dict.values())
 
         return merged_data
-
-
-if __name__ == '__main__':
-    file_path = r'E:\my_project\RAG_PROJECT\datas\md\tech_report_0tfhhamx.md'
-    parser = MarkdownParser()
-    docs = parser.parse_markdown_to_documents(file_path)
-    for item in docs:
-        print(f"元数据: {item.metadata}")
-        print(f"标题: {item.metadata.get('title', None)}")
-        print(f"doc的内容: {item.page_content}\n")
-        print("------" * 10)
