@@ -1,10 +1,10 @@
 from langchain_openai import OpenAIEmbeddings
 from langchain_huggingface import HuggingFaceEmbeddings
-from utils.env_utils import OPENAI_API_KEY
+from utils.env_utils import OPENAI_API_KEY, BASE_URL
 
 openai_embedding = OpenAIEmbeddings(
     openai_api_key=OPENAI_API_KEY,
-    openai_api_base="https://xiaoai.plus/v1"
+    openai_api_base=BASE_URL
 )
 
 model_name = "BAAI/bge-small-zh-v1.5"

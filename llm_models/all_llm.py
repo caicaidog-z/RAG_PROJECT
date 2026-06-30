@@ -1,13 +1,13 @@
 from langchain_community.tools import TavilySearchResults
 from langchain_openai import ChatOpenAI
 
-from utils.env_utils import OPENAI_API_KEY, DEEPSEEK_API_KEY
+from utils.env_utils import OPENAI_API_KEY, DEEPSEEK_API_KEY,BASE_URL,MODEL
 
 llm = ChatOpenAI(  # openai的
     temperature=0,
-    model='gpt-4o-mini',
+    model=MODEL,
     api_key=OPENAI_API_KEY,
-    base_url="https://xiaoai.plus/v1")
+    base_url=BASE_URL)
 
 
 web_search_tool = TavilySearchResults(max_results=2)
