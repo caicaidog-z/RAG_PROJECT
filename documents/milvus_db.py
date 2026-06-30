@@ -7,7 +7,7 @@ from pymilvus.client.types import MetricType, DataType, FunctionType
 
 from documents.markdown_parser import MarkdownParser
 from llm_models.embeddings_model import bge_embedding
-from utils.env_utils import MILVUS_URI, COLLECTION_NAME
+from utils.env_utils import MILVUS_URL, COLLECTION_NAME
 
 
 class MilvusVectorSave:
@@ -18,7 +18,7 @@ class MilvusVectorSave:
         self.vector_store_saved: Milvus = None
 
     def create_collection(self):
-        client = MilvusClient(uri=MILVUS_URI)
+        client = MilvusClient(uri=MILVUS_URL)
         schema = client.create_schema()
         schema.add_field(field_name='id', datatype=DataType.INT64, is_primary=True, auto_id=True)
         schema.add_field(field_name='text', datatype=DataType.VARCHAR, max_length=6000, enable_analyzer=True,
@@ -84,7 +84,7 @@ class MilvusVectorSave:
             vector_field=['dense', 'sparse'],
             consistency_level="Strong",
             auto_id=True,
-            connection_args={"uri": MILVUS_URI}
+            connection_args={"uri": MILVUS_URL}
         )
 
     def add_documents(self, datas: List[Document]):
