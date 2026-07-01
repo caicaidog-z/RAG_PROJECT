@@ -301,7 +301,7 @@ class MarkdownParser:
 
 
 if __name__ == '__main__':
-    file_path = r'E:\my_project\RAG_PROJECT\datas\md\tech_report_0tfhhamx.md'
+    file_path = r'D:\git\RAG_PROJECT\md\替代件详细需求-替代方案（新模板）.md'
     parser = MarkdownParser()
     docs = parser.parse_markdown_to_documents(file_path)
     for item in docs:
