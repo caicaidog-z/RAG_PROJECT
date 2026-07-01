@@ -3,3 +3,7 @@
 /datas/
 /.idea/
 /.env
+
+# Python 字节码缓存
+__pycache__/
+*.pyc
