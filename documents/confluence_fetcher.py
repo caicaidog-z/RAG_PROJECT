@@ -51,9 +51,10 @@ class ConfluenceFetcher:
         """
         soup = BeautifulSoup(html, "html.parser")
 
-        # 移除噪声标签
+        # 移除噪声标签（含删除线：s/del/strike）
         for tag in soup(["script", "style", "ac:structured-macro", "ac:parameter",
-                         "ac:rich-text-body", "ac:plain-text-body"]):
+                         "ac:rich-text-body", "ac:plain-text-body",
+                         "s", "del", "strike"]):
             tag.decompose()
 
         # 移除 HTML 注释
@@ -151,13 +152,45 @@ class ConfluenceFetcher:
         rows = table.find_all("tr")
         if not rows:
             return
+
+        # 构建二维网格，处理 rowspan/colspan
+        grid: list[list[str | None]] = []
+        for r, row in enumerate(rows):
+            while len(grid) <= r:
+                grid.append([])
+            col_cursor = 0
+            cells = row.find_all(["th", "td"], recursive=False)
+            for cell in cells:
+                while col_cursor < len(grid[r]) and grid[r][col_cursor] is not None:
+                    col_cursor += 1
+                text = (cell.get_text(separator=" ", strip=True)
+                        .replace("\n", " ").replace("|", "\\|"))
+                colspan = int(cell.get("colspan", 1) or 1)
+                rowspan = int(cell.get("rowspan", 1) or 1)
+                for j in range(colspan):
+                    while len(grid[r]) <= col_cursor + j:
+                        grid[r].append(None)
+                    grid[r][col_cursor + j] = text
+                for i in range(1, rowspan):
+                    while len(grid) <= r + i:
+                        grid.append([])
+                    for j in range(colspan):
+                        while len(grid[r + i]) <= col_cursor + j:
+                            grid[r + i].append(None)
+                        grid[r + i][col_cursor + j] = ""
+                col_cursor += colspan
+
+        max_cols = max((len(r) for r in grid), default=0)
+        for r in grid:
+            while len(r) < max_cols:
+                r.append("")
+
         md_rows = []
-        for i, row in enumerate(rows):
-            cells = row.find_all(["th", "td"])
-            cell_texts = [c.get_text(separator=" ", strip=True).replace("\n", " ").replace("|", "\\|") for c in cells]
-            md_rows.append("| " + " | ".join(cell_texts) + " |")
+        for i, r in enumerate(grid):
+            cells = [c if c is not None else "" for c in r]
+            md_rows.append("| " + " | ".join(cells) + " |")
             if i == 0:
-                md_rows.append("| " + " | ".join(["---"] * len(cell_texts)) + " |")
+                md_rows.append("| " + " | ".join(["---"] * max_cols) + " |")
         lines.extend(md_rows)
 
     def fetch_and_convert(self, content_id: str, filename: str = None) -> str:
