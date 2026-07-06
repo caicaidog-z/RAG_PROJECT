@@ -35,6 +35,12 @@ def generate(state):
             StrOutputParser()  # 第三步：解析模型输出为字符串
     )
 
-    # RAG生成过程
-    generation = rag_chain.invoke({"context": format_docs(documents), "question": question})  # 调用RAG链生成回答
+    # RAG生成过程（流式输出：边生成边打印 token，体感更快；同时累积完整文本供后续打分节点使用）
+    chunks = []
+    print("\n回答：", end="", flush=True)
+    for chunk in rag_chain.stream({"context": format_docs(documents), "question": question}):
+        print(chunk, end="", flush=True)
+        chunks.append(chunk)
+    print()  # 换行
+    generation = "".join(chunks)  # 拼接完整回答
     return {"documents": documents, "question": question, "generation": generation}  # 返回更新后的状态

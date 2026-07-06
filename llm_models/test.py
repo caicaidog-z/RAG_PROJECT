@@ -8,7 +8,7 @@
 @Date    ：2026/6/30
 """
 from langchain_openai import ChatOpenAI
-from utils.env_utils import OPENAI_API_KEY, BASE_URL, MODEL
+from utils.env_utils import OPENAI_API_KEY, BASE_URL, MODEL, DEEPSEEK_API_KEY
 
 # 打印配置确认
 print(f"MODEL: {MODEL}")
@@ -16,11 +16,10 @@ print(f"BASE_URL: {BASE_URL}")
 print(f"API_KEY: {OPENAI_API_KEY[:8]}..." if OPENAI_API_KEY else "API_KEY: None!")
 
 llm = ChatOpenAI(
-    temperature=0,
-    model=MODEL,
-    api_key=OPENAI_API_KEY,
-    base_url=BASE_URL,
-)
+    temperature=0.5,
+    model='deepseek-v4-flash',
+    api_key=DEEPSEEK_API_KEY,
+    base_url="https://api.deepseek.com")
 
 
 def test_llm_invoke():

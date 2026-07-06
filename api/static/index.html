@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG 企业知识库</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #273449;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent-2: #818cf8;
+    --user: #2563eb;
+    --ok: #10b981;
+    --err: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    height: 100vh;
+    overflow: hidden;
+  }
+  header {
+    grid-column: 1 / -1;
+    padding: 14px 24px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  header .badge { color: var(--muted); font-size: 12px; }
+
+  /* 问答区 */
+  .chat-wrap {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+  }
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .msg { display: flex; flex-direction: column; gap: 6px; max-width: 80%; }
+  .msg.user { align-self: flex-end; align-items: flex-end; }
+  .msg .role { font-size: 12px; color: var(--muted); }
+  .msg .bubble {
+    padding: 10px 14px;
+    border-radius: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .msg.user .bubble { background: var(--user); color: #fff; }
+  .msg.assistant .bubble { background: var(--panel-2); border: 1px solid var(--border); }
+  .msg .sources { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; }
+  .msg .sources .chip {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 8px;
+  }
+  .composer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--panel);
+    display: flex;
+    gap: 10px;
+  }
+  .composer input {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 14px;
+  }
+  .composer input:focus { outline: 1px solid var(--accent); }
+  .btn {
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: #0b1220;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.secondary { background: var(--accent-2); color: #fff; }
+  .btn.danger { background: var(--err); color: #fff; }
+
+  /* 侧栏：上传 */
+  .sidebar {
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+  }
+  .card h2 { margin: 0 0 12px; font-size: 15px; }
+  .card label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
+  .card input[type="text"], .card input[type="file"] {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+  .row { display: flex; gap: 8px; }
+  .row .btn { flex: 1; padding: 8px 12px; font-size: 13px; }
+  .result { font-size: 13px; color: var(--muted); margin-top: 10px; min-height: 18px; }
+  .result.ok { color: var(--ok); }
+  .result.err { color: var(--err); }
+
+  .typing::after {
+    content: "▋";
+    animation: blink 1s steps(2) infinite;
+    color: var(--accent);
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  @media (max-width: 760px) {
+    body { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; height: auto; }
+    .sidebar { border-top: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>RAG 企业知识库</h1>
+  <span class="badge">基于 Milvus 混合检索 + LangGraph</span>
+</header>
+
+<section class="chat-wrap">
+  <div class="messages" id="messages">
+    <div class="msg assistant">
+      <div class="role">助手</div>
+      <div class="bubble">你好，我是企业知识库助手。请基于已入库的文档提问，答案会逐字输出并附带来源。</div>
+    </div>
+  </div>
+  <div class="composer">
+    <input id="q" type="text" placeholder="输入问题，回车发送…" autocomplete="off" />
+    <button class="btn" id="send">发送</button>
+    <button class="btn secondary" id="sync">同步问答</button>
+  </div>
+</section>
+
+<aside class="sidebar">
+  <div class="card">
+    <h2>上传 Markdown 文档</h2>
+    <input type="file" id="mdfile" accept=".md" />
+    <div class="row">
+      <button class="btn" id="uploadMd">上传入库</button>
+    </div>
+    <div class="result" id="mdResult"></div>
+  </div>
+
+  <div class="card">
+    <h2>Confluence 文档入库</h2>
+    <label>文档 ID</label>
+    <input type="text" id="confluenceId" placeholder="如 1234567890" />
+    <label>自定义文件名（可选，不含 .md）</label>
+    <input type="text" id="confluenceName" placeholder="留空则用文档标题" />
+    <div class="row">
+      <button class="btn" id="uploadConf">抓取并入库</button>
+    </div>
+    <div class="result" id="confResult"></div>
+  </div>
+</aside>
+
+<script>
+const $ = id => document.getElementById(id);
+const messages = $('messages');
+
+function addMsg(role, text) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = `<div class="role">${role === 'user' ? '我' : '助手'}</div>
+    <div class="bubble"></div><div class="sources"></div>`;
+  div.querySelector('.bubble').textContent = text;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+  return div;
+}
+
+async function streamChat(question) {
+  const msgEl = addMsg('assistant', '');
+  const bubble = msgEl.querySelector('.bubble');
+  const sourcesEl = msgEl.querySelector('.sources');
+  bubble.classList.add('typing');
+  $('send').disabled = true;
+
+  const resp = await fetch('/api/chat/stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question }),
+  });
+  if (!resp.ok) {
+    bubble.classList.remove('typing');
+    bubble.textContent = '请求失败：' + resp.status;
+    $('send').disabled = false;
+    return;
+  }
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const parts = buf.split('\n\n');
+    buf = parts.pop();
+    for (const part of parts) {
+      const line = part.trim();
+      if (!line.startsWith('data:')) continue;
+      const payload = JSON.parse(line.slice(5).trim());
+      if (payload.type === 'token') {
+        bubble.classList.remove('typing');
+        bubble.textContent += payload.content;
+        messages.scrollTop = messages.scrollHeight;
+      } else if (payload.type === 'source') {
+        renderSources(sourcesEl, payload.sources);
+      } else if (payload.type === 'done') {
+        bubble.classList.remove('typing');
+      } else if (payload.type === 'error') {
+        bubble.classList.remove('typing');
+        bubble.textContent += '\n[错误] ' + payload.content;
+      }
+    }
+  }
+  bubble.classList.remove('typing');
+  $('send').disabled = false;
+}
+
+function renderSources(el, sources) {
+  el.innerHTML = '';
+  if (!sources || !sources.length) return;
+  const label = document.createElement('span');
+  label.textContent = '来源：';
+  el.appendChild(label);
+  sources.forEach(s => {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.textContent = s.title || s.filename || s.source || '文档';
+    chip.title = JSON.stringify(s);
+    el.appendChild(chip);
+  });
+}
+
+async function syncChat(question) {
+  const msgEl = addMsg('assistant', '（同步生成中…）');
+  $('sync').disabled = true;
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question }),
+    });
+    const data = await resp.json();
+    msgEl.querySelector('.bubble').textContent = data.answer || '（无回答）';
+    renderSources(msgEl.querySelector('.sources'), data.sources);
+  } catch (e) {
+    msgEl.querySelector('.bubble').textContent = '请求失败：' + e;
+  } finally {
+    $('sync').disabled = false;
+  }
+}
+
+$('send').onclick = () => {
+  const q = $('q').value.trim();
+  if (!q) return;
+  addMsg('user', q);
+  $('q').value = '';
+  streamChat(q);
+};
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter') $('send').click(); });
+$('sync').onclick = () => {
+  const q = $('q').value.trim();
+  if (!q) return;
+  addMsg('user', q);
+  $('q').value = '';
+  syncChat(q);
+};
+
+function setResult(el, text, ok) {
+  el.textContent = text;
+  el.className = 'result ' + (ok === true ? 'ok' : ok === false ? 'err' : '');
+}
+
+$('uploadMd').onclick = async () => {
+  const f = $('mdfile').files[0];
+  if (!f) { setResult($('mdResult'), '请先选择文件', false); return; }
+  setResult($('mdResult'), '上传中…');
+  const fd = new FormData();
+  fd.append('file', f);
+  try {
+    const resp = await fetch('/api/upload/md', { method: 'POST', body: fd });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || resp.status);
+    setResult($('mdResult'), `✓ ${data.filename}：${data.chunks} 个 chunk 入库`, true);
+  } catch (e) {
+    setResult($('mdResult'), '✗ ' + e, false);
+  }
+};
+
+$('uploadConf').onclick = async () => {
+  const content_id = $('confluenceId').value.trim();
+  if (!content_id) { setResult($('confResult'), '请输入文档 ID', false); return; }
+  const filename = $('confluenceName').value.trim() || null;
+  setResult($('confResult'), '抓取入库中…');
+  try {
+    const resp = await fetch('/api/upload/confluence', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content_id, filename }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || resp.status);
+    setResult($('confResult'), `✓ ${data.filename}：${data.chunks} 个 chunk 入库`, true);
+  } catch (e) {
+    setResult($('confResult'), '✗ ' + e, false);
+  }
+};
+</script>
+</body>
+</html>

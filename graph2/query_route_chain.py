@@ -19,7 +19,8 @@ class RouteQuery(BaseModel):
 
 
 # 带函数调用的LLM
-structured_llm_router = llm.with_structured_output(RouteQuery)
+# method="function_calling": 走标准 tools 接口（DeepSeek 等不兼容 OpenAI json_schema beta 的网关用这个）
+structured_llm_router = llm.with_structured_output(RouteQuery, method="function_calling")
 
 # 提示词模板
 system = """你是一个擅长将用户问题路由到向量知识库或网络搜索的专家。

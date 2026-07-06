@@ -14,7 +14,8 @@ class GradeHallucinations(BaseModel):
 
 
 # 带函数调用的LLM初始化
-structured_llm_grader = llm.with_structured_output(GradeHallucinations)  # 绑定结构化输出到评分模型
+# method="function_calling": DeepSeek 等不兼容 OpenAI json_schema beta 的网关用这个
+structured_llm_grader = llm.with_structured_output(GradeHallucinations, method="function_calling")  # 绑定结构化输出到评分模型
 
 # 提示词模板
 system = """您是一个评估生成内容是否基于检索事实的评分器。\n

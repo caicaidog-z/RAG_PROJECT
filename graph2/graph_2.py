@@ -150,24 +150,30 @@ graph = workflow.compile()
 
 _printed = set()  # set集合，避免重复打印
 
-# 执行工作流
-while True:
-    question = input('用户：')
-    if question.lower() in ['q', 'exit', 'quit']:
-        print('对话结束，拜拜！')
-        break
-    else:
-        inputs = {
-            "question": question
-        }
-        # 流式执行工作流
+
+def run_repl():
+    """交互式问答循环（CLI 入口）。
+
+    放进函数 + __main__ 守卫，避免本模块被 API 层 import 时
+    触发 input() 阻塞。API 层只需拿到编译后的 `graph` 单例即可。
+    """
+    import time  # 阶段计时，定位慢在哪一步
+
+    while True:
+        question = input('用户：')
+        if question.lower() in ['q', 'exit', 'quit']:
+            print('对话结束，拜拜！')
+            break
+        inputs = {"question": question}
+        t_start = time.time()
+        # 流式执行工作流（节点级流式：每跑完一个节点打印一次节点名和累计耗时）
         for output in graph.stream(inputs):
             for key, value in output.items():
-                # 打印当前节点名称
-                pprint(f"Node '{key}':")  # 显示当前执行的节点名称
-                # 可选：打印每个节点的完整状态信息
-                # pprint.pprint(value["keys"], indent=2, width=80, depth=None)
-            pprint("\n---\n")  # 节点分隔线
+                elapsed = time.time() - t_start
+                pprint(f"Node '{key}'  (+{elapsed:.1f}s)")  # 显示当前执行的节点名称及累计耗时
+            pprint("\n---\n")
+        # 最终回答已在 generate 节点内流式打印，此处不再重复输出
 
-        # 打印最终生成结果
-        pprint(value["generation"])  # 输出最终生成的回答内容
+
+if __name__ == '__main__':
+    run_repl()
