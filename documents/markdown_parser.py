@@ -17,6 +17,8 @@ class MarkdownParser:
     UNSPLITTABLE_CATEGORIES = {'Table', 'List'}
     # Milvus schema 中定义的字段（metadata 中只保留这些字段）
     MILVUS_SCHEMA_FIELDS = {'category', 'source', 'filename', 'filetype', 'title', 'category_depth'}
+    # text 字段在 Milvus schema 中为 VARCHAR(6000)，留出安全余量后的截断阈值
+    TEXT_MAX_LENGTH = 5500
 
     def __init__(self):
         self.text_splitter = SemanticChunker(
@@ -41,7 +43,17 @@ class MarkdownParser:
                 new_docs.extend(self.text_splitter.split_documents([d]))
                 continue
             new_docs.append(d)
+
+        # 保底：确保任何文档都不超过 Milvus text 字段的最大长度（防止语义切分或超长列表/表格残留爆长度）
+        new_docs = [self._truncate_text(d) for d in new_docs]
         return new_docs
+
+    def _truncate_text(self, doc: Document) -> Document:
+        """截断超长文本，确保不超过 Milvus text 字段的最大长度"""
+        if len(doc.page_content) <= self.TEXT_MAX_LENGTH:
+            return doc
+        truncated = doc.page_content[:self.TEXT_MAX_LENGTH] + '\n...(内容过长，已截断)'
+        return Document(page_content=truncated, metadata={**doc.metadata})
 
     def parse_markdown_to_documents(self, md_file: str, encoding='utf-8') -> List[Document]:
         documents = self.parse_markdown(md_file)
@@ -296,12 +308,21 @@ class MarkdownParser:
         if 'category_depth' not in cleaned_metadata or cleaned_metadata['category_depth'] is None:
             cleaned_metadata['category_depth'] = 0
 
+        # title 在 Milvus schema 中为非空字段，缺失时补空字符串，避免插入报错
+        if not cleaned_metadata.get('title'):
+            cleaned_metadata['title'] = ''
+
+        # text 在 Milvus schema 中为 VARCHAR(6000)，合并后立即截断，确保后续任何分支都不会爆长度
+        if len(doc.page_content) > self.TEXT_MAX_LENGTH:
+            log.warning(f"文档超长({len(doc.page_content)})，已截断到 {self.TEXT_MAX_LENGTH}: {cleaned_metadata.get('filename', '')}")
+            doc.page_content = doc.page_content[:self.TEXT_MAX_LENGTH] + '\n...(内容过长，已截断)'
+
         doc.metadata = cleaned_metadata
         return doc
 
 
 if __name__ == '__main__':
-    file_path = r'D:\git\RAG_PROJECT\md\替代件详细需求-替代方案（新模板）.md'
+    file_path = 'md/替代件详细需求-替代方案（新模板）.md'  # 在项目根目录运行
     parser = MarkdownParser()
     docs = parser.parse_markdown_to_documents(file_path)
     for item in docs:

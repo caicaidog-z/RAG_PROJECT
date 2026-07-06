@@ -8,6 +8,7 @@ from pymilvus.client.types import MetricType, DataType, FunctionType
 from documents.markdown_parser import MarkdownParser
 from llm_models.embeddings_model import bge_embedding
 from utils.env_utils import MILVUS_URL, COLLECTION_NAME
+from utils.log_utils import log
 
 
 class MilvusVectorSave:
@@ -89,13 +90,28 @@ class MilvusVectorSave:
 
     def add_documents(self, datas: List[Document]):
         """把新的document保存到Milvus中"""
+        # 最后一道保险：确保 text 不超过 Milvus VARCHAR(6000) 上限
+        max_len = 5500
+        for idx, d in enumerate(datas):
+            log.info(f"[入库前] 第{idx}条: page_content长度={len(d.page_content)}, category={d.metadata.get('category')}")
+            # 调试：打印前几条的完整 metadata 和内容片段
+            if idx < 6:
+                log.info(f"[入库前] 第{idx}条 metadata={d.metadata}")
+                log.info(f"[入库前] 第{idx}条 内容前300字符={d.page_content[:300]!r}")
+            # 同时检查 metadata 里是否有别的长文本字段
+            for k, v in d.metadata.items():
+                if isinstance(v, str) and len(v) > 1000:
+                    log.warning(f"[入库前] 第{idx}条 metadata字段 {k} 长度={len(v)}")
+            if len(d.page_content) > max_len:
+                log.warning(f"[入库前] 第{idx}条 超长({len(d.page_content)})，截断到 {max_len}")
+                d.page_content = d.page_content[:max_len] + '\n...(内容过长，已截断)'
         self.vector_store_saved.add_documents(datas)
 
 
 
 if __name__ == '__main__':
     # 解析文件内容
-    file_path = r'E:\my_project\RAG_PROJECT\datas\md\tech_report_0tfhhamx.md'
+    file_path = r'/Users/zhaozhihua/Downloads/RAG企业知识库项目/RAG_PROJECT/md/替代件详细需求-替代方案（新模板）.md'
     parser = MarkdownParser()
     docs = parser.parse_markdown_to_documents(file_path)
 
