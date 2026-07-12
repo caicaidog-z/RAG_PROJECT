@@ -6,7 +6,7 @@ from pymilvus import IndexType, MilvusClient, Function
 from pymilvus.client.types import MetricType, DataType, FunctionType
 
 from documents.markdown_parser import MarkdownParser
-from llm_models.embeddings_model import bge_embedding
+from llm_models.embeddings_model import get_bge_embedding
 from utils.env_utils import MILVUS_URL, COLLECTION_NAME
 from utils.log_utils import log
 
@@ -79,7 +79,7 @@ class MilvusVectorSave:
     def create_connection(self):
         """创建一个Connection： milvus + langchain。pip install  langchain-milvus"""
         self.vector_store_saved = Milvus(
-            embedding_function=bge_embedding,
+            embedding_function=get_bge_embedding(),
             collection_name=COLLECTION_NAME,
             builtin_function=BM25BuiltInFunction(),
             vector_field=['dense', 'sparse'],

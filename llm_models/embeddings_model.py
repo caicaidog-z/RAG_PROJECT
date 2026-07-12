@@ -1,15 +1,18 @@
-from langchain_openai import OpenAIEmbeddings
+from functools import lru_cache
+
 from langchain_huggingface import HuggingFaceEmbeddings
-from utils.env_utils import OPENAI_API_KEY, BASE_URL
 
-openai_embedding = OpenAIEmbeddings(
-    openai_api_key=OPENAI_API_KEY,
-    openai_api_base=BASE_URL
-)
 
-model_name = "BAAI/bge-small-zh-v1.5"
-model_kwargs = {"device": "cpu"}
-encode_kwargs = {"normalize_embeddings": True}
-bge_embedding = HuggingFaceEmbeddings(
-    model_name=model_name, model_kwargs=model_kwargs, encode_kwargs=encode_kwargs
-)
+@lru_cache(maxsize=1)
+def get_bge_embedding():
+    """惰性加载 BGE embedding 模型（首次调用时才实例化，约 10-20 秒）。
+
+    使用 lru_cache 保证全局单例，后续调用直接返回缓存对象。
+    改为惰性后，import 本模块不再触发模型加载，uvicorn 启动秒级完成。
+    """
+    model_name = "BAAI/bge-small-zh-v1.5"
+    model_kwargs = {"device": "cpu"}
+    encode_kwargs = {"normalize_embeddings": True}
+    return HuggingFaceEmbeddings(
+        model_name=model_name, model_kwargs=model_kwargs, encode_kwargs=encode_kwargs
+    )
