@@ -24,7 +24,7 @@ structured_llm_router = llm.with_structured_output(RouteQuery, method="function_
 
 # 提示词模板
 system = """你是一个擅长将用户问题路由到向量知识库或网络搜索的专家。
-向量知识库包含与半导体材料，芯片制造，光刻技术相关的文档。
+向量知识库包含与畅捷通新生产部门相关的文档，涵盖生产制造业务、车间管理、BOM（物料清单）、工艺路线、物料需求计划（MRP）、生产订单与排产、库存与仓储、采购与供应商、质量管理、以及畅捷通生产制造软件（如 T+ 生产管理模块、车间管理、条码/扫码报工等）的使用与配置等内容。
 对于这些主题的问题请使用向量知识库，其他情况使用网络搜索。"""
 route_prompt = ChatPromptTemplate.from_messages(
     [
@@ -38,11 +38,11 @@ question_router_chain = route_prompt | structured_llm_router
 
 
 # 测试路由器
-# print(  # 测试非技术问题（应路由到网络搜索）
+# print(  # 测试业务问题（应路由到向量知识库）
 #     question_router_chain.invoke(
-#         {"question": "什么是EUV光刻技术?"}
+#         {"question": "T+里怎么配置BOM和工艺路线?"}
 #     )
 # )
-# print(  # 测试技术问题（应路由到向量数据库）
-#     question_router_chain.invoke({"question": "今天，长沙的天气怎么样?"})
-# )
+print(  # 测试非业务问题（应路由到网络搜索）
+    question_router_chain.invoke({"question": "今天，长沙的天气怎么样?"})
+)

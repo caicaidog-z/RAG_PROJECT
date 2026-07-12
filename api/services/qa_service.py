@@ -1,6 +1,6 @@
 """问答业务逻辑。
 
-流式问答路径：自建异步 RAG chain（retriever.ainvoke + llm.astream），
+流式问答路径：先路由判断（向量库/网络搜索），再走对应检索 + LLM 流式生成，
 逐 token 推送，跳过 LangGraph 的幻觉打分/重试循环以换取实时流式体验。
 
 prompt 与 generate_node2.py 保持一致，保证回答风格不变。
@@ -54,15 +54,33 @@ async def stream_chat(question: str) -> AsyncIterator[str]:
       - error : 异常
     """
     try:
-        retriever = get_retriever()
         llm = get_llm()
 
-        log.info(f"[stream_chat] 开始检索: question={question!r}")
-        documents = await retriever.ainvoke(question)
+        # 路由判断：决定走向量库还是网络搜索
+        from graph2.query_route_chain import question_router_chain
+        route_result = question_router_chain.invoke({"question": question})
+        datasource = route_result.datasource
+        log.info(f"[stream_chat] 路由结果: datasource={datasource}, question={question!r}")
+
+        if datasource == "web_search":
+            # 网络搜索路径
+            from llm_models.all_llm import web_search_tool
+            from langchain_core.documents import Document
+            log.info("[stream_chat] 走网络搜索路径")
+            docs = web_search_tool.invoke({"query": question})
+            web_results = "\n".join([d["content"] for d in docs])
+            documents = [Document(page_content=web_results)]
+            sources = [{"title": "网络搜索", "source": "web_search", "filename": "", "category": "web"}]
+        else:
+            # 向量库检索路径
+            retriever = get_retriever()
+            log.info("[stream_chat] 走向量库检索路径")
+            documents = await retriever.ainvoke(question)
+            sources = [_doc_to_source(d) for d in documents]
+
         log.info(f"[stream_chat] 检索到 {len(documents)} 条文档")
 
         # 1) 先推送来源
-        sources = [_doc_to_source(d) for d in documents]
         yield _sse({"type": "source", "sources": sources})
 
         # 2) 流式生成 token

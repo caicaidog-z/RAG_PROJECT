@@ -1,11 +1,12 @@
 """FastAPI 应用入口。
 
 启动：
-    python -m uvicorn api.app:app --reload --port 8000
+    python -m uvicorn api.app:app --reload --port 8001
 访问：
-    http://localhost:8000/         前端页面
-    http://localhost:8000/docs     OpenAPI 调试
+    http://localhost:8001/         前端页面
+    http://localhost:8001/docs     OpenAPI 调试
 
+端口说明：使用 8001（8000 已被 Attu 占用）。
 前置条件：Milvus 在 MILVUS_URL（默认 localhost:19530）运行；.env 已配置密钥。
 """
 

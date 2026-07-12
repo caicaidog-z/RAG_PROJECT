@@ -90,21 +90,29 @@ class MilvusVectorSave:
 
     def add_documents(self, datas: List[Document]):
         """把新的document保存到Milvus中"""
-        # 最后一道保险：确保 text 不超过 Milvus VARCHAR(6000) 上限
-        max_len = 5500
+        # 最后一道保险：确保 text 的 UTF-8 字节数不超过 Milvus VARCHAR(6000) 上限
+        # （Milvus 按字节算上限，中文每字符 3 字节，必须用字节数而非字符数判断）
+        max_bytes = 5500
         for idx, d in enumerate(datas):
-            log.info(f"[入库前] 第{idx}条: page_content长度={len(d.page_content)}, category={d.metadata.get('category')}")
+            byte_len = len(d.page_content.encode('utf-8'))
+            log.info(f"[入库前] 第{idx}条: page_content字符数={len(d.page_content)} 字节数={byte_len}, category={d.metadata.get('category')}")
             # 调试：打印前几条的完整 metadata 和内容片段
             if idx < 6:
                 log.info(f"[入库前] 第{idx}条 metadata={d.metadata}")
                 log.info(f"[入库前] 第{idx}条 内容前300字符={d.page_content[:300]!r}")
             # 同时检查 metadata 里是否有别的长文本字段
             for k, v in d.metadata.items():
-                if isinstance(v, str) and len(v) > 1000:
-                    log.warning(f"[入库前] 第{idx}条 metadata字段 {k} 长度={len(v)}")
-            if len(d.page_content) > max_len:
-                log.warning(f"[入库前] 第{idx}条 超长({len(d.page_content)})，截断到 {max_len}")
-                d.page_content = d.page_content[:max_len] + '\n...(内容过长，已截断)'
+                if isinstance(v, str) and len(v.encode('utf-8')) > 1000:
+                    log.warning(f"[入库前] 第{idx}条 metadata字段 {k} 字节数={len(v.encode('utf-8'))}")
+            if byte_len > max_bytes:
+                # 按字节截断，避免截断半个多字节字符
+                encoded = d.page_content.encode('utf-8')
+                note = '\n...(内容过长，已截断)'
+                cut = max_bytes - len(note.encode('utf-8'))
+                while cut > 0 and (encoded[cut] & 0xC0) == 0x80:
+                    cut -= 1
+                d.page_content = encoded[:cut].decode('utf-8', errors='ignore') + note
+                log.warning(f"[入库前] 第{idx}条 超长(字节{byte_len})，截断到 {max_bytes}字节")
         self.vector_store_saved.add_documents(datas)
 
 
